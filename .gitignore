@@ -1,0 +1,4 @@
+## ignora todo excepto los .h y .cpp
+*/
+!/**/*.h
+!/**/*.cpp
