@@ -43,6 +43,9 @@
 #include <stdio.h>
 #include <windows.h>
 #include "Deviceinterface.h"
+#include <iostream>
+
+using namespace std;
 
 char* pStrDeviceName;
 HANDLE hDevice;
@@ -97,7 +100,9 @@ int main(int argc, char* argv[])
 	}
 
 	// get initial state of the device's SSI_COMM_CONFIG structure
-	bSuccess =
+	// COMENTADO PARA EVITAR ERRROR SIN TARJETA SYNC 
+	/*************************************************************************************/
+	/*bSuccess =
 		DeviceIoControl(
 			hDevice,                    // returned from CreateFile()
 			IOCTL_SSI_GET_COMM_CONFIG,  // I/O control code
@@ -111,7 +116,12 @@ int main(int argc, char* argv[])
 	{
 		DWORD dwLastError = GetLastError();
 		printf("error %u from IOCTL_SSI_GET_COMM_CONFIG\n", dwLastError);
-	}
+	} */
+
+
+	/*****************************************************************************************/
+	/*****************************************************************************************/
+
 
 
 	// NOTE:  The following test uses RS-232 with HDLC/SDLC and CRC generation and checking
@@ -141,8 +151,8 @@ int main(int argc, char* argv[])
 	CommCfg.CharacterSyncControl = 0;
 
 
-	dcb.fOutxCtsFlow = FALSE;                // don’t need CTS to send
-	dcb.fOutxDsrFlow = FALSE;                // don’t need DSR to send
+	dcb.fOutxCtsFlow = FALSE;                // donï¿½t need CTS to send
+	dcb.fOutxDsrFlow = FALSE;                // donï¿½t need DSR to send
 	dcb.fRtsControl = RTS_CONTROL_ENABLE;    // allow control of RTS
 	dcb.Parity = NOPARITY;                   // no parity in this application
 	dcb.BaudRate = CommCfg.BitRate;			// make it the same as above
@@ -164,7 +174,9 @@ int main(int argc, char* argv[])
 
 	// update the device's SSI_COMM_CONFIG structure
 
-	bSuccess =
+	// COMENTADO PARA EVITAR ERROR SIN TARJETA 
+	/*******************************************************************************************/
+	/*bSuccess =
 		DeviceIoControl(
 			hDevice,                    // returned from CreateFile()
 			IOCTL_SSI_SET_COMM_CONFIG,  // I/O control code
@@ -180,7 +192,9 @@ int main(int argc, char* argv[])
 		DWORD dwLastError = GetLastError();
 		printf("error %u from IOCTL_SSI_SET_COMM_CONFIG\n", dwLastError);
 	}
+	*/
 
+	/***********************************************************************************************/
 
 	// get initial timeouts settings before changing them
 	bSuccess =
@@ -213,81 +227,60 @@ int main(int argc, char* argv[])
 		printf("error %u from SetCommTimeouts\n", dwLastError);
 	}
 
-
-	// initialize the buffer to all values from 0 to 255
-	for (int fcp = 0; fcp < 256; fcp++)
-	{
-		TBuffer[fcp] = fcp;
+	// Configura el puerto serie para recibir eventos de caracteres
+	if (!SetCommMask(hDevice, EV_RXCHAR)) {
+		std::cerr << "Error al configurar el puerto serie" << std::endl;
+		CloseHandle(hDevice);
+		return 1;
 	}
 
-	printf("Beginning test\n");
-	iloop = 0;
-	detectederror = false;
-	// the following does a write and then two reads to make sure everyting is set and no
-	// noise was received as a result of connecting connectors, etc.
-	bSuccess =
-		WriteFile(
-			hDevice,                    // returned from CreateFile()
-			TBuffer,                     // will contain the received data
-			256,		                // number of bytes to write
-			&sData,                     // actual amount of written data, in bytes
-			NULL                        // non-overlapped read
-		);
+	cout << "Esperando data ..." << endl;
+	DWORD dwEventMask;
+	DWORD dwSize = 0;
+	// Espera a que ocurra un evento en el puerto serie
+	if (WaitCommEvent(hDevice, &dwEventMask, NULL)) {
+		DWORD dwIncommingReadSize;
 
-	if (!bSuccess)
-	{
-		DWORD dwLastError = GetLastError();
-		printf("error %u from Writefile\n", dwLastError);
+		do {
+			// Lee datos del puerto serie
+			if (ReadFile(hDevice, RBuffer, sizeof(RBuffer), &dwIncommingReadSize, NULL) != 0) {
+				if (dwIncommingReadSize > 0) {
+					dwSize += dwIncommingReadSize;
+					// Puedes procesar los datos recibidos aqui o almacenarlos en otro lugar segï¿½n sea necesario
+					// Imprimir los datos recibidos
+					for (DWORD i = 0; i < dwIncommingReadSize; i++) {
+						std::cout << std::hex << static_cast<int>(RBuffer[i]) << " ";  //mPrint en HEX
+					}
+					std::cout << std::endl;
+
+					for (DWORD i = 0; i < dwIncommingReadSize; i++) {
+						if (isprint(RBuffer[i])) {
+							std::cout << RBuffer[i]; // Si el caracter es imprimible, imprimelo   
+						}
+						else {
+							std::cout << "."; // De lo contrario, imprime un punto
+						}
+					}
+					std::cout << std::endl;
+				}
+			}
+			else {
+				std::cerr << "Error al leer datos del puerto serie" << std::endl;
+				CloseHandle(hDevice);
+				return 1;
+			}
+		} while (dwIncommingReadSize > 0);
 	}
-	Sleep(500);						// make sure it has fully come in
-	bSuccess =
-		ReadFile(
-			hDevice,                    // returned from CreateFile()
-			&RBuffer,                     // will contain the received data
-			300,				         // size of passed buffer
-			&sData,                     // actual amount of returned data, in bytes
-			NULL                        // non-overlapped read
-		);
-	if (!bSuccess)
-	{
-		DWORD dwLastError = GetLastError();
-		printf("Read Error %u \n", dwLastError);
-	}
-	bSuccess =
-		ReadFile(
-			hDevice,                    // returned from CreateFile()
-			&RBuffer,                     // will contain the received data
-			300,				         // size of passed buffer
-			&sData,                     // actual amount of returned data, in bytes
-			NULL                        // non-overlapped read
-		);
-	if (!bSuccess)
-	{
-		DWORD dwLastError = GetLastError();
-		printf("Read Error %u \n", dwLastError);
+	else {
+		std::cerr << "Error al esperar eventos en el puerto serie" << std::endl;
+		CloseHandle(hDevice);
+		return 1;
 	}
 
-	// perform the following write (and subsequent read) 50 times	
-	while ((iloop++ < 50) && !detectederror)
-	{
-		printf("*");
-		bSuccess =
-			WriteFile(
-				hDevice,                    // returned from CreateFile()
-				TBuffer,                     // will contain the received data
-				256,		                // number of bytes to write
-				&sData,                     // actual amount of written data, in bytes
-				NULL                        // non-overlapped read
-			);
 
-		if (!bSuccess)
-		{
-			DWORD dwLastError = GetLastError();
-			printf("error %u from Writefile\n", dwLastError);
-		}
 
-		Sleep(100);
 
+	/*
 		memset(RBuffer, 0x00, 300);
 		bSuccess =
 			ReadFile(
@@ -302,79 +295,13 @@ int main(int argc, char* argv[])
 			DWORD dwLastError = GetLastError();
 			printf("Read Error %u \n", dwLastError);
 		}
-		if (sData != 256)
-		{
-			printf("Read data size = %d\n", sData);
-			detectederror = true;
-		}
-		for (ic = 0; ic < sData; ic++)
-		{
-			if (TBuffer[ic] != RBuffer[ic])
-			{
-				printf("%03d ", (UCHAR)RBuffer[ic]);
-				detectederror = true;
-			}
-		}
-
-		// in the following the valid values of EscapeCommFunction are;
-		//		CLRRTS
-		//		SETRTS
-		//		CLRDTR
-		//		SETDTR
-
-		// and the valid responses from GetCommModemStatus are:
-		//		MS_CTS_ON
-		//		MS_DSR_ON
-		//		MS_RING_ON
-		//		MS_RLSD_ON			(also called carrier detect (CD))
-
-		// test RTS looped back to CTS
-		EscapeCommFunction(hDevice, CLRRTS);		//ensure RTS is not set
-		GetCommModemStatus(hDevice, &ModemStatus);
-		if ((ModemStatus & MS_CTS_ON) != 0)
-		{
-			printf("RTS to CTS failure\n");
-			detectederror = true;
-		}
-		EscapeCommFunction(hDevice, SETRTS);		//ensure RTS is set
-		GetCommModemStatus(hDevice, &ModemStatus);
-		if ((ModemStatus & MS_CTS_ON) == 0)
-		{
-			printf("RTS to CTS failure\n");
-			detectederror = true;
-		}
-		EscapeCommFunction(hDevice, CLRRTS);		//ensure RTS is not set
-		GetCommModemStatus(hDevice, &ModemStatus);
-		if ((ModemStatus & MS_CTS_ON) != 0)
-		{
-			printf("RTS to CTS failure\n");
-			detectederror = true;
-		}
-		// test DTR looped back to DSR
-		EscapeCommFunction(hDevice, CLRDTR);		//ensure DTR is not set
-		GetCommModemStatus(hDevice, &ModemStatus);
-		if ((ModemStatus & MS_DSR_ON) != 0)
-		{
-			printf("DTR to DSR failure\n");
-			detectederror = true;
-		}
-		EscapeCommFunction(hDevice, SETDTR);		//ensure DTR is set
-		GetCommModemStatus(hDevice, &ModemStatus);
-		if ((ModemStatus & MS_DSR_ON) == 0)
-		{
-			printf("DTR to DSR failure\n");
-			detectederror = true;
-		}
-		EscapeCommFunction(hDevice, CLRDTR);		//ensure DTR is not set
-		GetCommModemStatus(hDevice, &ModemStatus);
-		if ((ModemStatus & MS_DSR_ON) != 0)
-		{
-			printf("DTR to DSR failure\n");
-			detectederror = true;
-		}
-	}
+	
+	
+	*/
 
 
+
+	//detectederror = true;
 	CloseHandle(hDevice);
 
 	if (detectederror)
