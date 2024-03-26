@@ -1,4 +1,4 @@
-/*
+ï»¿/*
 * SeaMACSample.cpp
 *
 * The following test uses RS-232 with HDLC/SDLC and CRC generation and checking
@@ -43,6 +43,7 @@
 #include <stdio.h>
 #include <windows.h>
 #include "Deviceinterface.h"
+#include <iostream>
 
 char* pStrDeviceName;
 HANDLE hDevice;
@@ -117,38 +118,59 @@ int main(int argc, char* argv[])
 	// NOTE:  The following test uses RS-232 with HDLC/SDLC and CRC generation and checking
 	// turned on.  The test is run at 19.2K and does not use the internal loopbacks.
 	// Please see the SeaMAC Help file for full details on all options available.
-	CommCfg.Electrical = ssiElectricalRS232;
-	CommCfg.Framing = ssiFramingSdlc;
+	
+//	SSI_FRAMING_ENUM        Framing;           /**< Async, Sync, SDLC or Raw     */
+//	LONG                    ulReserved;        /**< Filler                       */
+//	LONG                    PreTxDelayTime;    /**<\# of msecs delay after CTS before transmitting */
+//	LONG                    PostTxDelayTime;   /**<\# of msecs delay after transmitting before dropping RTS */
+//	UCHAR                   CharacterSize;     /**< Character Size (5-8)         */
+//	UCHAR                   StopBits;          /**<\# of stop bits [Async]     */
+//	UCHAR                   Parity;            /**< Parity                       */
+//	BOOLEAN                 Loopback;          /**< If in local loopback mode    */
+//	BOOLEAN                 Echo;              /**< If in auto-echo mode         */
+//	BOOLEAN					MergeFrames;       /**< If writes should be merged	 */
+//	UCHAR                   uchReserved[2];    /**< Filler                       */
+	
+	
+	CommCfg.Electrical = ssiElectricalRS485;   // ssiElectricalRS232;
+	CommCfg.Framing = ssiFramingCharacterSync;
 	CommCfg.ClockEncoding = ssiClockEncodingNone;
 	CommCfg.SdlcAddressMode = ssiAddressModeFromAny;
-	CommCfg.PreTxDelayTime = 0;
-	CommCfg.PostTxDelayTime = 0;
 	CommCfg.RsetSource = ssiTimingBrg;
 	CommCfg.TsetSource = ssiTimingBrg;
+
+	CommCfg.PreTxDelayTime = 0;
+	CommCfg.PostTxDelayTime = 0;
 	CommCfg.DpllBaseFromRset = false;
 	CommCfg.BrgSourceFromRset = false;
 	CommCfg.CrcPolynomial = ssiCrcCcitt;
 	CommCfg.CharacterSize = 8;
 	CommCfg.Parity = NOPARITY;
-	CommCfg.IdleMode = ssiIdleSync;
+	CommCfg.IdleMode = ssiIdleSpace; // ssiIdleSync;
 	CommCfg.Loopback = false;
 	CommCfg.Echo = false;
-	CommCfg.BitRate = 19200;
+	CommCfg.BitRate = 1000;
 
 	CommCfg.PreTxDelayTime = 0;
 	CommCfg.PostTxDelayTime = 0;
 
 	CommCfg.CharacterSyncControl = 0;
 
+	// PARAMETROS NUEVOS
+	CommCfg.SyncCharacterSize = 16;
+	CommCfg.SyncCharacter = 0xFECC;
+	CommCfg.CrcPresetOnes = true;
+	CommCfg.PreamblePattern = ssiPreamblePatternOnes;
+	CommCfg.PreambleLength = 0;
 
-	dcb.fOutxCtsFlow = FALSE;                // don’t need CTS to send
-	dcb.fOutxDsrFlow = FALSE;                // don’t need DSR to send
-	dcb.fRtsControl = RTS_CONTROL_ENABLE;    // allow control of RTS
+	dcb.fOutxCtsFlow = FALSE;                // donï¿½t need CTS to send
+	dcb.fOutxDsrFlow = FALSE;                // donï¿½t need DSR to send
+	dcb.fRtsControl = RTS_CONTROL_TOGGLE;    //RTS_CONTROL_ENABLE;    // allow control of RTS
 	dcb.Parity = NOPARITY;                   // no parity in this application
 	dcb.BaudRate = CommCfg.BitRate;			// make it the same as above
 
 	// update the device's DCB
-
+	 
 	bSuccess =
 		SetCommState(
 			hDevice,                    // returned from CreateFile()
@@ -268,8 +290,16 @@ int main(int argc, char* argv[])
 	}
 
 	// perform the following write (and subsequent read) 50 times	
-	while ((iloop++ < 50) && !detectederror)
+	while ((iloop++ < 1) && !detectederror)
 	{
+		printf("VALORES ANTES DE ENVIAR ");
+
+		for (int i = 0; i < 256; i++)
+		{
+				std::cout << static_cast<int>(TBuffer[i]) << " ";
+
+		}
+
 		printf("*");
 		bSuccess =
 			WriteFile(
@@ -301,7 +331,7 @@ int main(int argc, char* argv[])
 		{
 			DWORD dwLastError = GetLastError();
 			printf("Read Error %u \n", dwLastError);
-		}
+		} 
 		if (sData != 256)
 		{
 			printf("Read data size = %d\n", sData);
