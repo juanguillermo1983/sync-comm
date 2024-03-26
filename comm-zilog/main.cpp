@@ -243,80 +243,22 @@ int main(int argc, char* argv[])
 	}
 
 	printf("Beginning test\n");
+
+
 	iloop = 0;
 	detectederror = false;
-	// the following does a write and then two reads to make sure everyting is set and no
-	// noise was received as a result of connecting connectors, etc.
-	bSuccess =
-		WriteFile(
-			hDevice,                    // returned from CreateFile()
-			TBuffer,                     // will contain the received data
-			256,		                // number of bytes to write
-			&sData,                     // actual amount of written data, in bytes
-			NULL                        // non-overlapped read
-		);
 
-	if (!bSuccess)
-	{
-		DWORD dwLastError = GetLastError();
-		printf("error %u from Writefile\n", dwLastError);
-	}
+
+
 	Sleep(500);						// make sure it has fully come in
-	bSuccess =
-		ReadFile(
-			hDevice,                    // returned from CreateFile()
-			&RBuffer,                     // will contain the received data
-			300,				         // size of passed buffer
-			&sData,                     // actual amount of returned data, in bytes
-			NULL                        // non-overlapped read
-		);
-	if (!bSuccess)
-	{
-		DWORD dwLastError = GetLastError();
-		printf("Read Error %u \n", dwLastError);
-	}
-	bSuccess =
-		ReadFile(
-			hDevice,                    // returned from CreateFile()
-			&RBuffer,                     // will contain the received data
-			300,				         // size of passed buffer
-			&sData,                     // actual amount of returned data, in bytes
-			NULL                        // non-overlapped read
-		);
-	if (!bSuccess)
-	{
-		DWORD dwLastError = GetLastError();
-		printf("Read Error %u \n", dwLastError);
-	}
+
 
 	// perform the following write (and subsequent read) 50 times	
-	while ((iloop++ < 1) && !detectederror)
+	while ((iloop++ < 5) && !detectederror)
 	{
-		printf("VALORES ANTES DE ENVIAR ");
 
-		for (int i = 0; i < 256; i++)
-		{
-				std::cout << static_cast<int>(TBuffer[i]) << " ";
 
-		}
-
-		printf("*");
-		bSuccess =
-			WriteFile(
-				hDevice,                    // returned from CreateFile()
-				TBuffer,                     // will contain the received data
-				256,		                // number of bytes to write
-				&sData,                     // actual amount of written data, in bytes
-				NULL                        // non-overlapped read
-			);
-
-		if (!bSuccess)
-		{
-			DWORD dwLastError = GetLastError();
-			printf("error %u from Writefile\n", dwLastError);
-		}
-
-		Sleep(100);
+		//Sleep(100);
 
 		memset(RBuffer, 0x00, 300);
 		bSuccess =
@@ -332,76 +274,16 @@ int main(int argc, char* argv[])
 			DWORD dwLastError = GetLastError();
 			printf("Read Error %u \n", dwLastError);
 		} 
-		if (sData != 256)
-		{
-			printf("Read data size = %d\n", sData);
-			detectederror = true;
-		}
-		for (ic = 0; ic < sData; ic++)
-		{
-			if (TBuffer[ic] != RBuffer[ic])
-			{
-				printf("%03d ", (UCHAR)RBuffer[ic]);
-				detectederror = true;
-			}
-		}
 
-		// in the following the valid values of EscapeCommFunction are;
-		//		CLRRTS
-		//		SETRTS
-		//		CLRDTR
-		//		SETDTR
+		printf("Valores recibidos ");
 
-		// and the valid responses from GetCommModemStatus are:
-		//		MS_CTS_ON
-		//		MS_DSR_ON
-		//		MS_RING_ON
-		//		MS_RLSD_ON			(also called carrier detect (CD))
+		for (int i = 0; i < 256; i++)
+		{
+				std::cout << static_cast<int>(RBuffer[i]) << " ";
 
-		// test RTS looped back to CTS
-		EscapeCommFunction(hDevice, CLRRTS);		//ensure RTS is not set
-		GetCommModemStatus(hDevice, &ModemStatus);
-		if ((ModemStatus & MS_CTS_ON) != 0)
-		{
-			printf("RTS to CTS failure\n");
-			detectederror = true;
-		}
-		EscapeCommFunction(hDevice, SETRTS);		//ensure RTS is set
-		GetCommModemStatus(hDevice, &ModemStatus);
-		if ((ModemStatus & MS_CTS_ON) == 0)
-		{
-			printf("RTS to CTS failure\n");
-			detectederror = true;
-		}
-		EscapeCommFunction(hDevice, CLRRTS);		//ensure RTS is not set
-		GetCommModemStatus(hDevice, &ModemStatus);
-		if ((ModemStatus & MS_CTS_ON) != 0)
-		{
-			printf("RTS to CTS failure\n");
-			detectederror = true;
-		}
-		// test DTR looped back to DSR
-		EscapeCommFunction(hDevice, CLRDTR);		//ensure DTR is not set
-		GetCommModemStatus(hDevice, &ModemStatus);
-		if ((ModemStatus & MS_DSR_ON) != 0)
-		{
-			printf("DTR to DSR failure\n");
-			detectederror = true;
-		}
-		EscapeCommFunction(hDevice, SETDTR);		//ensure DTR is set
-		GetCommModemStatus(hDevice, &ModemStatus);
-		if ((ModemStatus & MS_DSR_ON) == 0)
-		{
-			printf("DTR to DSR failure\n");
-			detectederror = true;
-		}
-		EscapeCommFunction(hDevice, CLRDTR);		//ensure DTR is not set
-		GetCommModemStatus(hDevice, &ModemStatus);
-		if ((ModemStatus & MS_DSR_ON) != 0)
-		{
-			printf("DTR to DSR failure\n");
-			detectederror = true;
-		}
+         } 
+		std::cout << "FIN" << std::endl;
+
 	}
 
 
