@@ -44,6 +44,7 @@
 #include <windows.h>
 #include "Deviceinterface.h"
 #include <iostream>
+#include <iomanip>
 
 char* pStrDeviceName;
 HANDLE hDevice;
@@ -158,7 +159,7 @@ int main(int argc, char* argv[])
 
 	// PARAMETROS NUEVOS
 	CommCfg.SyncCharacterSize = 16;
-	CommCfg.SyncCharacter = 0xFECC;
+	CommCfg.SyncCharacter = 0xCCFE;
 	CommCfg.CrcPresetOnes = true;
 	CommCfg.PreamblePattern = ssiPreamblePatternOnes;
 	CommCfg.PreambleLength = 0;
@@ -254,7 +255,7 @@ int main(int argc, char* argv[])
 
 
 	// perform the following write (and subsequent read) 50 times	
-	while ((iloop++ < 5) && !detectederror)
+	while ((iloop++ < 50) && !detectederror)
 	{
 
 
@@ -279,9 +280,16 @@ int main(int argc, char* argv[])
 
 		for (int i = 0; i < 256; i++)
 		{
-				std::cout << static_cast<int>(RBuffer[i]) << " ";
+				//std::cout << static_cast<int>(RBuffer[i]) << " ";
+				std::cout << std::setw(2) << std::setfill('0') << std::hex << static_cast<int>(static_cast<unsigned char> (RBuffer[i])) << " ";
+
 
          } 
+		/* for (DWORD i = 0; i < sData; i++)
+		 {
+				 std::cout << RBuffer[i] << " ";
+
+		  }*/
 		std::cout << "FIN" << std::endl;
 
 	}
