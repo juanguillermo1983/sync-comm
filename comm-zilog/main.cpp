@@ -45,10 +45,16 @@
 #include "Deviceinterface.h"
 #include <iostream>
 #include <iomanip>
+#include <cstring>
+#include <cstdlib>
+#include <ctime>
+#include <vector>
 
 char* pStrDeviceName;
 HANDLE hDevice;
 
+
+const int BUFFER_SIZE = 500;
 char TBuffer[500];
 char RBuffer[500];
 
@@ -63,6 +69,44 @@ ULONG sData;
 ULONG ic;
 int iloop;
 DWORD	ModemStatus;		// status of modem control inputs
+
+void printBuffer() {
+	for (int i = 0; i < BUFFER_SIZE; ++i) {
+		//std::cout << static_cast<int>(TBuffer[i]) << " ";
+		//std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(TBuffer[i]) << " ";
+		std::cout << std::uppercase << std::hex << std::setw(2) << std::setfill('0') << static_cast<unsigned int>(static_cast<unsigned char>(RBuffer[i])) << " ";
+	}
+	std::cout << std::endl;
+}
+
+std::vector<char> extractData(const char* raw, int size) {
+	std::vector<char> data;
+	bool dataStarted = false;
+
+	for (int i = 0; i < size - 1; ++i) {
+		if (raw[i] == '\xCC' && raw[i + 1] == '\xFE') {
+			dataStarted = true;
+			data.push_back(raw[i]); // Include sync bytes in the extracted data
+			data.push_back(raw[i + 1]);
+			i += 1; // Skip the two-byte sequence
+		}
+		else if (dataStarted) {
+			if (raw[i] == '\x00' && raw[i + 1] == '\x00') {
+				break; // End of data
+			}
+			data.push_back(raw[i]);
+		}
+	}
+
+	return data;
+}
+
+void printBufferDos(const std::vector<char>& buffer) {
+	for (char c : buffer) {
+		std::cout << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << static_cast<unsigned int>(static_cast<unsigned char>(c)) << " ";
+	}
+	std::cout << std::endl;
+}
 
 
 int main(int argc, char* argv[])
@@ -147,7 +191,7 @@ int main(int argc, char* argv[])
 	CommCfg.CrcPolynomial = ssiCrcCcitt;
 	CommCfg.CharacterSize = 8;
 	CommCfg.Parity = NOPARITY;
-	CommCfg.IdleMode = ssiIdleSpace; // ssiIdleSync;
+	CommCfg.IdleMode = ssiIdleSync;  ///ssiIdleSpace; // ssiIdleSync;
 	CommCfg.Loopback = false;
 	CommCfg.Echo = false;
 	CommCfg.BitRate = 1000;
@@ -159,7 +203,7 @@ int main(int argc, char* argv[])
 
 	// PARAMETROS NUEVOS
 	CommCfg.SyncCharacterSize = 16;
-	CommCfg.SyncCharacter = 0xCCFE;
+	CommCfg.SyncCharacter = 0xFECC;
 	CommCfg.CrcPresetOnes = true;
 	CommCfg.PreamblePattern = ssiPreamblePatternOnes;
 	CommCfg.PreambleLength = 0;
@@ -255,7 +299,7 @@ int main(int argc, char* argv[])
 
 
 	// perform the following write (and subsequent read) 50 times	
-	while ((iloop++ < 50) && !detectederror)
+	while ((iloop++ < 100) && !detectederror)
 	{
 
 
@@ -278,13 +322,26 @@ int main(int argc, char* argv[])
 
 		printf("Valores recibidos ");
 
-		for (int i = 0; i < 256; i++)
+		int size = sizeof(RBuffer) - 1; // Resta 1 para excluir el carácter nulo final
+
+		// Llama a extractData
+		std::vector<char> extractedData = extractData(RBuffer, size);
+
+		std::cout << "." << std::endl;
+		std::cout << "." << std::endl;
+		//printBufferDos(extractedData);
+		printBuffer();
+
+
+
+		// funcion anterior 
+		/*for (int i = 0; i < 256; i++)
 		{
 				//std::cout << static_cast<int>(RBuffer[i]) << " ";
 				std::cout << std::setw(2) << std::setfill('0') << std::hex << static_cast<int>(static_cast<unsigned char> (RBuffer[i])) << " ";
 
 
-         } 
+         } */
 		/* for (DWORD i = 0; i < sData; i++)
 		 {
 				 std::cout << RBuffer[i] << " ";
