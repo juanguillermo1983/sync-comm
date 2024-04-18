@@ -1,4 +1,11 @@
-﻿#include <stdio.h>
+﻿/*
+CONFIGURACION DPLL
+CABECERA esta seteada en CommCfg.SyncCharacter = 0xFECC.  Para un frame de komatsu creemos que debe ser CCFE  Y 
+TAMBIEN DEBE SER INVERTIDA LA LINEA 77 (if (raw[i] == '\xCC' && raw[i + 1] == '\xFE') )   // si la conf es CCFE  , la funcion debe tener FE  CC
+
+*/
+
+#include <stdio.h>
 #include <windows.h>
 #include "Deviceinterface.h"
 #include <iostream>
@@ -204,7 +211,7 @@ int main(int argc, char* argv[])
 
 	// PARAMETROS NUEVOS
 	CommCfg.SyncCharacterSize = 16;
-	CommCfg.SyncCharacter = 0xCCFE; //OJO --> Puede ser 0xFECC
+	CommCfg.SyncCharacter = 0xFECC; //OJO --> Puede ser 0xCCFE 
 	CommCfg.CrcPresetOnes = true;
 	CommCfg.PreamblePattern = ssiPreamblePatternOnes;
 	CommCfg.PreambleLength = 0;
