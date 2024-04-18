@@ -179,10 +179,10 @@ int main(int argc, char* argv[])
 	
 	CommCfg.Electrical = ssiElectricalRS485;   // ssiElectricalRS232;
 	CommCfg.Framing = ssiFramingCharacterSync;
-	CommCfg.ClockEncoding = ssiClockEncodingNone;
+	CommCfg.ClockEncoding = ssiClockEncodingNrz;
 	CommCfg.SdlcAddressMode = ssiAddressModeFromAny;
-	CommCfg.RsetSource = ssiTimingBrg;
-	CommCfg.TsetSource = ssiTimingBrg;
+	CommCfg.RsetSource = ssiTimingDpll;
+	CommCfg.TsetSource = ssiTimingDpll;
 
 	CommCfg.PreTxDelayTime = 0;
 	CommCfg.PostTxDelayTime = 0;
@@ -203,14 +203,14 @@ int main(int argc, char* argv[])
 
 	// PARAMETROS NUEVOS
 	CommCfg.SyncCharacterSize = 16;
-	CommCfg.SyncCharacter = 0xFECC;
+	CommCfg.SyncCharacter = 0xCCFE; //OJO --> Puede ser 0xFECC
 	CommCfg.CrcPresetOnes = true;
 	CommCfg.PreamblePattern = ssiPreamblePatternOnes;
 	CommCfg.PreambleLength = 0;
 
 	dcb.fOutxCtsFlow = FALSE;                // don�t need CTS to send
 	dcb.fOutxDsrFlow = FALSE;                // don�t need DSR to send
-	dcb.fRtsControl = RTS_CONTROL_TOGGLE;    //RTS_CONTROL_ENABLE;    // allow control of RTS
+	dcb.fRtsControl = RTS_CONTROL_DISABLE;    //RTS_CONTROL_ENABLE;    // allow control of RTS
 	dcb.Parity = NOPARITY;                   // no parity in this application
 	dcb.BaudRate = CommCfg.BitRate;			// make it the same as above
 
