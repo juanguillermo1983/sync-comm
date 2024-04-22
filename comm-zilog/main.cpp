@@ -17,6 +17,7 @@ TAMBIEN DEBE SER INVERTIDA LA LINEA 77 (if (raw[i] == '\xCC' && raw[i + 1] == '\
 #include <chrono>
 #include <fstream>
 #include <sstream>
+#include <csignal>
 
 bool bExitRq = false;
 char* pStrDeviceName;
@@ -39,6 +40,11 @@ ULONG ic;
 int iloop;
 DWORD	ModemStatus;		// status of modem control inputs
 
+void signalHandler(int signum) {
+	std::cout << "Signal " << signum << " received Exiting..." << std::endl;
+	bExitRq = true;
+}
+
 void printBuffer() {
 	for (int i = 0; i < BUFFER_SIZE; ++i) {
 		//std::cout << static_cast<int>(TBuffer[i]) << " ";
@@ -48,28 +54,6 @@ void printBuffer() {
 	std::cout << std::endl;
 }
 
-// antiguo extractor 
-/*std::vector<char> extractData(const char* raw, int size) {
-	std::vector<char> data;
-	bool dataStarted = false;
-
-	for (int i = 0; i < size - 1; ++i) {
-		if (raw[i] == '\xCC' && raw[i + 1] == '\xFE') {
-			dataStarted = true;
-			data.push_back(raw[i]); // Include sync bytes in the extracted data
-			data.push_back(raw[i + 1]);
-			i += 1; // Skip the two-byte sequence
-		}
-		else if (dataStarted) {
-			if (raw[i] == '\x00' && raw[i + 1] == '\x00') {
-				break; // End of data
-			}
-			data.push_back(raw[i]);
-		}
-	}
-
-	return data;
-}*/
 std::vector<char> extractData(const char* raw, int size) {
 	std::vector<char> data;
 	bool dataStarted = false;
@@ -148,6 +132,8 @@ void printBufferDos(const std::vector<char>& buffer) {
 
 int main(int argc, char* argv[])
 {
+	signal(SIGINT, signalHandler);
+
 	hDevice = CreateFile(
 		L"\\\\.\\SeaMAC0",
 		GENERIC_READ | GENERIC_WRITE,
@@ -327,7 +313,8 @@ int main(int argc, char* argv[])
 
 	printf("Iniciamos la lectura\n");
 
-	while (iloop++ < 50)
+	//while (iloop++ < 50)
+	while (!bExitRq)
 	{
 		printf("*");
 
