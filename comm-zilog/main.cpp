@@ -288,13 +288,7 @@ int main(int argc, char* argv[])
 	}
 
 
-	// initialize the buffer to all values from 0 to 255
-	for (int fcp = 0; fcp < 256; fcp++)
-	{
-		TBuffer[fcp] = fcp;
-	}
-
-	printf("Beginning test\n");
+	printf("Beginning ...\n");
 
 
 	iloop = 0;
@@ -313,16 +307,11 @@ int main(int argc, char* argv[])
 
 	printf("Iniciamos la lectura\n");
 
-	//while (iloop++ < 50)
 	while (!bExitRq)
 	{
 		printf("*");
 
-		// hCommPort
-
-		//memset(buf, 0, 256);
-
-		memset(RBuffer, 0x00, 256);
+		memset(RBuffer, 0x00, 500);
 		bSuccess =
 			ReadFile(
 				hDevice,                    // returned from CreateFile()
