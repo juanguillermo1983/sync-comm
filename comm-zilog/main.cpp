@@ -18,6 +18,7 @@ TAMBIEN DEBE SER INVERTIDA LA LINEA 77 (if (raw[i] == '\xCC' && raw[i + 1] == '\
 #include <fstream>
 #include <sstream>
 
+bool bExitRq = false;
 char* pStrDeviceName;
 HANDLE hDevice;
 
@@ -92,19 +93,31 @@ std::vector<char> extractData(const char* raw, int size) {
 }
 void writeDataToFile(const std::vector<char>& data, const std::string& filename) {
 	// Abrir el archivo para escribir al final
-	std::ofstream file(filename, std::ios::out | std::ios::app);
+	std::ofstream file(filename + ".csv", std::ios::out | std::ios::app); // Agrega la extensión .csv al nombre del archivo
 	if (file.is_open()) {
+		std::stringstream hexStream; // Stream para almacenar la representación hexadecimal
+		hexStream << std::hex << std::setfill('0'); // Configuración del stream para escribir en hexadecimal y rellenar con ceros
 		// Escribir los datos en formato hexadecimal en el archivo
 		for (char c : data) {
-			file << "0x" << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(static_cast<unsigned char>(c)) << " ";
+			hexStream << std::setw(2) << std::uppercase << static_cast<int>(static_cast<unsigned char>(c)); // Escribe el byte en hexadecimal en mayúsculas
+			hexStream << ","; // Agrega una coma para separar los bytes
 		}
-		file << std::endl;
+
+		std::string hexString = hexStream.str();
+		if (!hexString.empty()) {
+
+			// Escribe la cadena hexadecimal en el archivo
+			file << hexStream.str() << std::endl;
+			std::cout << "Los datos se han añadido al archivo " << filename << ".csv" << std::endl;
+
+		}
+
 		// Cerrar el archivo
 		file.close();
-		std::cout << "Los datos se han añadido al archivo " << filename << std::endl;
+		
 	}
 	else {
-		std::cerr << "Error al abrir el archivo " << filename << " para escribir" << std::endl;
+		std::cerr << "Error al abrir el archivo " << filename << ".csv" << " para escribir" << std::endl;
 	}
 }
 
@@ -306,9 +319,9 @@ int main(int argc, char* argv[])
 	Sleep(500);	 // make sure it has fully come in
 
 /****************************************************************/
-// inicio ciclo 
+// start while 
 
-	std::string filename = "data_" + getTimestampString() + ".txt";
+	std::string filename = "data_" + getTimestampString();
 
 
 
@@ -349,7 +362,7 @@ int main(int argc, char* argv[])
 
 	} 	
 
-//// fin del ciclo while
+//// end while 
 /********************************************/
 
 	CloseHandle(hDevice);
