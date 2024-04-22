@@ -1,45 +1,6 @@
 ﻿/*
-* SeaMACSample.cpp
-*
-* The following test uses RS-232 with HDLC/SDLC and CRC generation and checking
-* turned on.  The test is run at 19.2K and requires the use of an external loopback.
-* Please see the SeaMAC Help file for full details on all options available.
-*
-* This program assumes you have a loopback of some sort on the DB-25 connector.  For this test
-* we only use a connection from transmit data (pin 3) to receive data pin (pins 2),
-* a connection from RTS(pin 4) to CTS (pin 5), and a connection from DTR(pin 20) to DSR(pin 6).
-* i.e. jumper 2-3, 4-5, and 6-20.
-*
-* Sealevel and SeaMAC are registered trademarks of Sealevel Systems
-* Incorporated.
-*
-* Copyright (c) 2010-2017, Sealevel Systems, Inc.
-* All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are met:
-*
-* 1. Redistributions of source code must retain the above copyright notice, this
-*   list of conditions and the following disclaimer.
-* 2. Redistributions in binary form must reproduce the above copyright notice,
-*   this list of conditions and the following disclaimer in the documentation
-*   and/or other materials provided with the distribution.
-*
-* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-* ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-* DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
-* ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-* (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-* LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-* ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-* SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*
+Configuracion NO dpll
 */
-
-
-
 #include <stdio.h>
 #include <windows.h>
 #include "Deviceinterface.h"
@@ -49,7 +10,15 @@
 #include <cstdlib>
 #include <ctime>
 #include <vector>
+#include <chrono>
+#include <fstream>
+#include <sstream>
+#include <csignal>
 
+
+
+
+bool bExitRq = false;
 char* pStrDeviceName;
 HANDLE hDevice;
 
@@ -69,6 +38,11 @@ ULONG sData;
 ULONG ic;
 int iloop;
 DWORD	ModemStatus;		// status of modem control inputs
+
+void signalHandler(int signum) {
+	std::cout << "Signal " << signum << " received Exiting..." << std::endl;
+	bExitRq = true;
+}
 
 void printBuffer() {
 	for (int i = 0; i < BUFFER_SIZE; ++i) {
@@ -101,6 +75,53 @@ std::vector<char> extractData(const char* raw, int size) {
 	return data;
 }
 
+void writeDataToFile(const std::vector<char>& data, const std::string& filename) {
+	// Abrir el archivo para escribir al final
+	std::ofstream file(filename + ".csv", std::ios::out | std::ios::app); // Agrega la extensión .csv al nombre del archivo
+	if (file.is_open()) {
+		std::stringstream hexStream; // Stream para almacenar la representación hexadecimal
+		hexStream << std::hex << std::setfill('0'); // Configuración del stream para escribir en hexadecimal y rellenar con ceros
+		// Escribir los datos en formato hexadecimal en el archivo
+		for (char c : data) {
+			hexStream << std::setw(2) << std::uppercase << static_cast<int>(static_cast<unsigned char>(c)); // Escribe el byte en hexadecimal en mayúsculas
+			hexStream << ","; // Agrega una coma para separar los bytes
+		}
+
+		std::string hexString = hexStream.str();
+		if (!hexString.empty()) {
+
+			// Escribe la cadena hexadecimal en el archivo
+			file << hexStream.str() << std::endl;
+			std::cout << "Los datos se han añadido al archivo " << filename << ".csv" << std::endl;
+
+		}
+
+		// Cerrar el archivo
+		file.close();
+
+	}
+	else {
+		std::cerr << "Error al abrir el archivo " << filename << ".csv" << " para escribir" << std::endl;
+	}
+}
+
+std::string getTimestampString() {
+	auto now = std::chrono::system_clock::now();
+	auto timestamp = std::chrono::system_clock::to_time_t(now);
+	std::tm timeinfo;
+	localtime_s(&timeinfo, &timestamp);
+
+	// Formatear la fecha y hora manualmente
+	std::ostringstream oss;
+	oss << std::setfill('0') << std::setw(2) << timeinfo.tm_mday
+		<< std::setw(2) << (timeinfo.tm_mon + 1)
+		<< (1900 + timeinfo.tm_year)
+		<< std::setw(2) << timeinfo.tm_hour
+		<< std::setw(2) << timeinfo.tm_min
+		<< std::setw(2) << timeinfo.tm_sec;
+	return oss.str();
+}
+
 void printBufferDos(const std::vector<char>& buffer) {
 	for (char c : buffer) {
 		std::cout << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << static_cast<unsigned int>(static_cast<unsigned char>(c)) << " ";
@@ -111,6 +132,9 @@ void printBufferDos(const std::vector<char>& buffer) {
 
 int main(int argc, char* argv[])
 {
+	// manipulador para finalizar la ejecucion
+	signal(SIGINT, signalHandler);
+
 	hDevice = CreateFile(
 		L"\\\\.\\SeaMAC0",
 		GENERIC_READ | GENERIC_WRITE,
@@ -158,24 +182,6 @@ int main(int argc, char* argv[])
 		DWORD dwLastError = GetLastError();
 		printf("error %u from IOCTL_SSI_GET_COMM_CONFIG\n", dwLastError);
 	}
-
-
-	// NOTE:  The following test uses RS-232 with HDLC/SDLC and CRC generation and checking
-	// turned on.  The test is run at 19.2K and does not use the internal loopbacks.
-	// Please see the SeaMAC Help file for full details on all options available.
-	
-//	SSI_FRAMING_ENUM        Framing;           /**< Async, Sync, SDLC or Raw     */
-//	LONG                    ulReserved;        /**< Filler                       */
-//	LONG                    PreTxDelayTime;    /**<\# of msecs delay after CTS before transmitting */
-//	LONG                    PostTxDelayTime;   /**<\# of msecs delay after transmitting before dropping RTS */
-//	UCHAR                   CharacterSize;     /**< Character Size (5-8)         */
-//	UCHAR                   StopBits;          /**<\# of stop bits [Async]     */
-//	UCHAR                   Parity;            /**< Parity                       */
-//	BOOLEAN                 Loopback;          /**< If in local loopback mode    */
-//	BOOLEAN                 Echo;              /**< If in auto-echo mode         */
-//	BOOLEAN					MergeFrames;       /**< If writes should be merged	 */
-//	UCHAR                   uchReserved[2];    /**< Filler                       */
-	
 	
 	CommCfg.Electrical = ssiElectricalRS485;   // ssiElectricalRS232;
 	CommCfg.Framing = ssiFramingCharacterSync;
@@ -281,13 +287,9 @@ int main(int argc, char* argv[])
 	}
 
 
-	// initialize the buffer to all values from 0 to 255
-	for (int fcp = 0; fcp < 256; fcp++)
-	{
-		TBuffer[fcp] = fcp;
-	}
 
-	printf("Beginning test\n");
+
+	printf("Beginning ...\n");
 
 
 	iloop = 0;
@@ -297,20 +299,27 @@ int main(int argc, char* argv[])
 
 	Sleep(500);						// make sure it has fully come in
 
+	/****************************************************************/
+// start while 
 
-	// perform the following write (and subsequent read) 50 times	
-	while ((iloop++ < 100) && !detectederror)
+	std::string filename = "data_" + getTimestampString();
+
+
+
+	printf("Iniciamos la lectura\n");
+
+	//while (iloop++ < 50)
+	while (!bExitRq)
 	{
+		printf("*");
 
 
-		//Sleep(100);
-
-		memset(RBuffer, 0x00, 300);
+		memset(RBuffer, 0x00, 500);
 		bSuccess =
 			ReadFile(
 				hDevice,                    // returned from CreateFile()
 				&RBuffer,                     // will contain the received data
-				300,				         // size of passed buffer
+				256,				         // size of passed buffer
 				&sData,                     // actual amount of returned data, in bytes
 				NULL                        // non-overlapped read
 			);
@@ -318,38 +327,20 @@ int main(int argc, char* argv[])
 		{
 			DWORD dwLastError = GetLastError();
 			printf("Read Error %u \n", dwLastError);
-		} 
-
-		printf("Valores recibidos ");
+		}
 
 		int size = sizeof(RBuffer) - 1; // Resta 1 para excluir el carácter nulo final
 
 		// Llama a extractData
 		std::vector<char> extractedData = extractData(RBuffer, size);
 
-		std::cout << "." << std::endl;
-		std::cout << "." << std::endl;
-		//printBufferDos(extractedData);
-		printBuffer();
+		writeDataToFile(extractedData, filename);
+		//printBuffer();
 
-
-
-		// funcion anterior 
-		/*for (int i = 0; i < 256; i++)
-		{
-				//std::cout << static_cast<int>(RBuffer[i]) << " ";
-				std::cout << std::setw(2) << std::setfill('0') << std::hex << static_cast<int>(static_cast<unsigned char> (RBuffer[i])) << " ";
-
-
-         } */
-		/* for (DWORD i = 0; i < sData; i++)
-		 {
-				 std::cout << RBuffer[i] << " ";
-
-		  }*/
-		std::cout << "FIN" << std::endl;
+		printBufferDos(extractedData);
 
 	}
+
 
 
 	CloseHandle(hDevice);
