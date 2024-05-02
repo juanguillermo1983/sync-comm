@@ -24,9 +24,9 @@ char* pStrDeviceName;
 HANDLE hDevice;
 
 
-const int BUFFER_SIZE = 500;
-char TBuffer[500];
-char RBuffer[500];
+const int BUFFER_SIZE = 1000;
+char TBuffer[1000];
+char RBuffer[1000];
 
 bool detectederror;
 BOOL bSuccess;
@@ -46,35 +46,32 @@ void signalHandler(int signum) {
 }
 
 void printBuffer() {
+	bool hasNonZero = false;
+
 	for (int i = 0; i < BUFFER_SIZE; ++i) {
-		//std::cout << static_cast<int>(TBuffer[i]) << " ";
-		//std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(TBuffer[i]) << " ";
-		std::cout << std::uppercase << std::hex << std::setw(2) << std::setfill('0') << static_cast<unsigned int>(static_cast<unsigned char>(RBuffer[i])) << " ";
-	}
-	std::cout << std::endl;
-}
-
-std::vector<char> extractData(const char* raw, int size) {
-	std::vector<char> data;
-	bool dataStarted = false;
-
-	for (int i = 0; i < size - 1; ++i) {
-		if (raw[i] == '\xCC' && raw[i + 1] == '\xFE') {
-			dataStarted = true;
-			data.push_back(raw[i]); // Include sync bytes in the extracted data
-			data.push_back(raw[i + 1]);
-			i += 1; // Skip the two-byte sequence
-		}
-		else if (dataStarted) {
-			if (raw[i] == '\x00' && raw[i + 1] == '\x00') {
-				break; // End of data
-			}
-			data.push_back(raw[i]);
+		if (RBuffer[i] != 0) {
+			hasNonZero = true;
+			break;
 		}
 	}
 
-	return data;
+	if (hasNonZero) {
+
+		for (int i = 0; i < BUFFER_SIZE; ++i) {
+			//std::cout << static_cast<int>(TBuffer[i]) << " ";
+			//std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(TBuffer[i]) << " ";
+			std::cout << std::uppercase << std::hex << std::setw(2) << std::setfill('0') << static_cast<unsigned int>(static_cast<unsigned char>(RBuffer[i])) << " ";
+		}
+		std::cout << std::endl;
+
+	}
+	else {
+		std::cout << "Buffer Sin Datos ..." << std::endl;
+	}
+
+
 }
+
 void writeDataToFile(const std::vector<char>& data, const std::string& filename) {
 	// Abrir el archivo para escribir al final
 	std::ofstream file(filename + ".csv", std::ios::out | std::ios::app); // Agrega la extensión .csv al nombre del archivo
@@ -98,12 +95,68 @@ void writeDataToFile(const std::vector<char>& data, const std::string& filename)
 
 		// Cerrar el archivo
 		file.close();
-		
+
 	}
 	else {
 		std::cerr << "Error al abrir el archivo " << filename << ".csv" << " para escribir" << std::endl;
 	}
 }
+
+// Función para extraer mensajes y escribir en archivo
+void extractAndWriteMessages(const char* raw, int size, const std::string& filename) {
+	bool insideMessage = false;
+	std::vector<char> currentMessage;
+	std::cout << "inicio funcion" << std::endl;
+	for (int i = 0; i < size - 1; ++i) {
+		if (!insideMessage && raw[i] == '\xCC' && raw[i + 1] == '\xFE') {
+			// Inicio de un nuevo mensaje
+			insideMessage = true;
+			currentMessage.push_back(raw[i]); // Incluir bytes de sincronización en los datos extraídos
+			currentMessage.push_back(raw[i + 1]);
+			i += 1; // Saltar la secuencia de dos bytes
+		}
+		else if (insideMessage) {
+			currentMessage.push_back(raw[i]);
+
+			// Verificar el final del mensaje (\x00\x00)
+			if (raw[i] == '\x00' && raw[i + 1] == '\x00') {
+				insideMessage = false;
+
+				// Escribir el mensaje actual en el archivo
+				writeDataToFile(currentMessage, filename);
+				std::cout << "Llama a guardar en el archivo " << std::endl;
+				// Limpiar para el siguiente mensaje
+				currentMessage.clear();
+
+				// Saltar el final del mensaje (\x00\x00)
+				i += 1;
+			}
+		}
+	}
+}
+
+std::vector<char> extractData(const char* raw, int size) {
+	std::vector<char> data;
+	bool dataStarted = false;
+
+	for (int i = 0; i < size - 1; ++i) {
+		if (raw[i] == '\xCC' && raw[i + 1] == '\xFE') {
+			dataStarted = true;
+			data.push_back(raw[i]); // Include sync bytes in the extracted data
+			data.push_back(raw[i + 1]);
+			i += 1; // Skip the two-byte sequence
+		}
+		else if (dataStarted) {
+			if (raw[i] == '\x00' && raw[i + 1] == '\x00') {
+				break; // End of data
+			}
+			data.push_back(raw[i]);
+		}
+	}
+
+	return data;
+}
+
 
 std::string getTimestampString() {
 	auto now = std::chrono::system_clock::now();
@@ -198,10 +251,10 @@ int main(int argc, char* argv[])
 	CommCfg.CrcPolynomial = ssiCrcCcitt;
 	CommCfg.CharacterSize = 8;
 	CommCfg.Parity = NOPARITY;
-	CommCfg.IdleMode = ssiIdleSync;  ///ssiIdleSpace; // ssiIdleSync;
+	CommCfg.IdleMode = ssiIdleSync;//ssiIdleContZero; //ssiIdleSync;  ///ssiIdleSpace; 
 	CommCfg.Loopback = false;
 	CommCfg.Echo = false;
-	CommCfg.BitRate = 1000;
+	CommCfg.BitRate = 460800;
 
 	CommCfg.PreTxDelayTime = 0;
 	CommCfg.PostTxDelayTime = 0;
@@ -274,7 +327,7 @@ int main(int argc, char* argv[])
 	cto.WriteTotalTimeoutConstant = 1000;    // wait a total
 	cto.ReadIntervalTimeout = 0;             // no interval timeout
 	cto.ReadTotalTimeoutMultiplier = 0;      // no per-character timeout
-	cto.ReadTotalTimeoutConstant = 1000;    // wait a total
+	cto.ReadTotalTimeoutConstant = 4;    // wait a total antes 1000
 
 	bSuccess =
 		SetCommTimeouts(
@@ -293,10 +346,10 @@ int main(int argc, char* argv[])
 
 	iloop = 0;
 	detectederror = false;
+	int size = sizeof(RBuffer) - 1; // Resta 1 para excluir el carácter nulo final
 
 
-
-	Sleep(500);	 // make sure it has fully come in
+	Sleep(100);	 // make sure it has fully come in
 
 /****************************************************************/
 // start while 
@@ -309,14 +362,15 @@ int main(int argc, char* argv[])
 
 	while (!bExitRq)
 	{
-		printf("*");
+		auto start = std::chrono::high_resolution_clock::now();
+		//printf("*");
 
-		memset(RBuffer, 0x00, 500);
+		memset(RBuffer, 0x00, 1000);
 		bSuccess =
 			ReadFile(
 				hDevice,                    // returned from CreateFile()
 				&RBuffer,                     // will contain the received data
-				256,				         // size of passed buffer
+				1000,				         // size of passed buffer
 				&sData,                     // actual amount of returned data, in bytes
 				NULL                        // non-overlapped read
 			);
@@ -325,16 +379,33 @@ int main(int argc, char* argv[])
 			DWORD dwLastError = GetLastError();
 			printf("Read Error %u \n", dwLastError);
 		}
+		else {
+			printf("##*##");
+			printBuffer();
+			extractAndWriteMessages(RBuffer, size, filename);
 
-		int size = sizeof(RBuffer) - 1; // Resta 1 para excluir el carácter nulo final
+		}
+
+		
 
 		// Llama a extractData
-		std::vector<char> extractedData = extractData(RBuffer, size);
-
-		writeDataToFile(extractedData, filename);
+		//std::vector<char> extractedData = extractData(RBuffer, size);
+		//writeDataToFile(extractedData, filename);
 		//printBuffer();
 
-		printBufferDos(extractedData);
+		//extractAndWriteMessages(RBuffer, size, filename);
+
+		//printBufferDos(extractedData);
+
+
+		/****************************************/
+
+		auto end = std::chrono::high_resolution_clock::now();
+		auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+		float durationFloat = static_cast<float>(duration.count()) / 1000000.0f; // convierte a seg
+		std::cout << "Tiempo por iteracion " << std::fixed << std::setprecision(6) << durationFloat << "Seg" << std::endl;
+
+		/****************************************/
 
 	} 	
 
