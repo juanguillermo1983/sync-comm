@@ -24,9 +24,9 @@ char* pStrDeviceName;
 HANDLE hDevice;
 
 
-const int BUFFER_SIZE = 1000;
-char TBuffer[1000];
-char RBuffer[1000];
+const int BUFFER_SIZE = 296;
+char TBuffer[BUFFER_SIZE];
+char RBuffer[BUFFER_SIZE];
 
 bool detectederror;
 BOOL bSuccess;
@@ -47,20 +47,37 @@ void signalHandler(int signum) {
 
 void printBuffer() {
 	bool hasNonZero = false;
+	
+	// copia a Tbuffer 
+	std::memcpy(TBuffer, RBuffer, BUFFER_SIZE);
 
-	for (int i = 0; i < BUFFER_SIZE; ++i) {
-		if (RBuffer[i] != 0) {
+	/*for (int i = 0; i < BUFFER_SIZE; ++i) {
+		TBuffer[i] = ~TBuffer[i];
+	}*/
+
+	for (int i = 0; i < BUFFER_SIZE - 3; ++i) {
+		if (RBuffer[i] == (char)0XFF && RBuffer[i+1] == (char)0XFF && RBuffer[i+2] == (char)0XFF && RBuffer[i+3] == (char)0XFF) {
 			hasNonZero = true;
+			//std::cout << "IDLE ENCONTRADO  ..." << std::endl;
 			break;
+			
 		}
 	}
 
-	if (hasNonZero) {
+	/*for (int i = 0; i < BUFFER_SIZE - 2; ++i) {
+		if (RBuffer[i] !=0 ) {
+			hasNonZero = true;
+			break;
+		}
+	}*/
 
-		for (int i = 0; i < BUFFER_SIZE; ++i) {
+	if (!hasNonZero) {
+
+		for (int i = 0; i < BUFFER_SIZE -2 ; ++i) {
 			//std::cout << static_cast<int>(TBuffer[i]) << " ";
 			//std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(TBuffer[i]) << " ";
-			std::cout << std::uppercase << std::hex << std::setw(2) << std::setfill('0') << static_cast<unsigned int>(static_cast<unsigned char>(RBuffer[i])) << " ";
+			std::cout << std::uppercase << std::hex << std::setw(2) << std::setfill('0') << static_cast<unsigned int>(static_cast<unsigned char>(RBuffer[i])) << " "; 
+
 		}
 		std::cout << std::endl;
 
@@ -89,7 +106,7 @@ void writeDataToFile(const std::vector<char>& data, const std::string& filename)
 
 			// Escribe la cadena hexadecimal en el archivo
 			file << hexStream.str() << std::endl;
-			std::cout << "Los datos se han añadido al archivo " << filename << ".csv" << std::endl;
+			std::cout << "Los datos se han añadido al archivo **************************************************************************************************** " << filename << ".csv" << std::endl;
 
 		}
 
@@ -109,6 +126,7 @@ void extractAndWriteMessages(const char* raw, int size, const std::string& filen
 	std::cout << "inicio funcion" << std::endl;
 	for (int i = 0; i < size - 1; ++i) {
 		if (!insideMessage && raw[i] == '\xCC' && raw[i + 1] == '\xFE') {
+			//if (!insideMessage && raw[i] == '\xCC' && raw[i + 1] == '\xFE') {
 			// Inicio de un nuevo mensaje
 			insideMessage = true;
 			currentMessage.push_back(raw[i]); // Incluir bytes de sincronización en los datos extraídos
@@ -125,6 +143,9 @@ void extractAndWriteMessages(const char* raw, int size, const std::string& filen
 				// Escribir el mensaje actual en el archivo
 				writeDataToFile(currentMessage, filename);
 				std::cout << "Llama a guardar en el archivo " << std::endl;
+				for (const char& ch : currentMessage) {
+					std::cout << std::hex  << std::setw(2) << std::setfill('0') << (int)(unsigned char)ch << " ";
+				}
 				// Limpiar para el siguiente mensaje
 				currentMessage.clear();
 
@@ -251,7 +272,7 @@ int main(int argc, char* argv[])
 	CommCfg.CrcPolynomial = ssiCrcCcitt;
 	CommCfg.CharacterSize = 8;
 	CommCfg.Parity = NOPARITY;
-	CommCfg.IdleMode = ssiIdleSync;//ssiIdleContZero; //ssiIdleSync;  ///ssiIdleSpace; 
+	CommCfg.IdleMode =  ssiIdleContOne; // ssiIdleSync;//ssiIdleContZero; //ssiIdleSync;  ///ssiIdleSpace; 
 	CommCfg.Loopback = false;
 	CommCfg.Echo = false;
 	CommCfg.BitRate = 460800;
@@ -263,7 +284,7 @@ int main(int argc, char* argv[])
 
 	// PARAMETROS NUEVOS
 	CommCfg.SyncCharacterSize = 16;
-	CommCfg.SyncCharacter = 0xFECC; //OJO --> Puede ser 0xCCFE 
+	CommCfg.SyncCharacter = 0xCCFE; //OJO --> Puede ser 0xCCFE 
 	CommCfg.CrcPresetOnes = true;
 	CommCfg.PreamblePattern = ssiPreamblePatternOnes;
 	CommCfg.PreambleLength = 0;
@@ -327,7 +348,7 @@ int main(int argc, char* argv[])
 	cto.WriteTotalTimeoutConstant = 1000;    // wait a total
 	cto.ReadIntervalTimeout = 0;             // no interval timeout
 	cto.ReadTotalTimeoutMultiplier = 0;      // no per-character timeout
-	cto.ReadTotalTimeoutConstant = 4;    // wait a total antes 1000
+	cto.ReadTotalTimeoutConstant = 1;    // wait a total antes 1000
 
 	bSuccess =
 		SetCommTimeouts(
@@ -365,12 +386,12 @@ int main(int argc, char* argv[])
 		auto start = std::chrono::high_resolution_clock::now();
 		//printf("*");
 
-		memset(RBuffer, 0x00, 1000);
+		memset(RBuffer, 0x00, BUFFER_SIZE);
 		bSuccess =
 			ReadFile(
 				hDevice,                    // returned from CreateFile()
 				&RBuffer,                     // will contain the received data
-				1000,				         // size of passed buffer
+				BUFFER_SIZE,				         // size of passed buffer
 				&sData,                     // actual amount of returned data, in bytes
 				NULL                        // non-overlapped read
 			);
@@ -381,7 +402,7 @@ int main(int argc, char* argv[])
 		}
 		else {
 			printf("##*##");
-			printBuffer();
+			//printBuffer();
 			extractAndWriteMessages(RBuffer, size, filename);
 
 		}
@@ -389,21 +410,22 @@ int main(int argc, char* argv[])
 		
 
 		// Llama a extractData
-		//std::vector<char> extractedData = extractData(RBuffer, size);
-		//writeDataToFile(extractedData, filename);
-		//printBuffer();
+		/*printf("##*## CHECK ALL");
+		std::vector<char> extractedData = extractData(RBuffer, size);
+		writeDataToFile(extractedData, filename);
+		printBuffer();
 
-		//extractAndWriteMessages(RBuffer, size, filename);
+		extractAndWriteMessages(RBuffer, size, filename);
 
-		//printBufferDos(extractedData);
+		printBufferDos(extractedData);*/
 
 
 		/****************************************/
 
-		auto end = std::chrono::high_resolution_clock::now();
+		/*auto end = std::chrono::high_resolution_clock::now();
 		auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 		float durationFloat = static_cast<float>(duration.count()) / 1000000.0f; // convierte a seg
-		std::cout << "Tiempo por iteracion " << std::fixed << std::setprecision(6) << durationFloat << "Seg" << std::endl;
+		std::cout << "Tiempo por iteracion " << std::fixed << std::setprecision(6) << durationFloat << "Seg" << std::endl; */
 
 		/****************************************/
 
