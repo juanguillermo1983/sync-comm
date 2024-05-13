@@ -64,6 +64,15 @@ void printBuffer() {
 		}
 	}
 
+	for (int i = 0; i < BUFFER_SIZE - 3; ++i) {
+		if (RBuffer[i] == (char)0X00 && RBuffer[i + 1] == (char)0X00 && RBuffer[i + 2] == (char)0X00 && RBuffer[i + 3] == (char)0X00) {
+			hasNonZero = true;
+			std::cout << "IDLE ENCONTRADO 0x00   ..." << std::endl;
+			break;
+
+		}
+	}
+
 	/*for (int i = 0; i < BUFFER_SIZE - 2; ++i) {
 		if (RBuffer[i] !=0 ) {
 			hasNonZero = true;
